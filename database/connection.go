@@ -31,6 +31,7 @@ func DBinstance() *mongo.Client {
 
 	err = client.Connect(ctx)
 	if err != nil {
+		fmt.Print("Connection failed to MongoDB")
 		log.Fatal(err)
 	}
 
@@ -42,5 +43,5 @@ func DBinstance() *mongo.Client {
 var Client *mongo.Client = DBinstance()
 
 func OpenCollection(client *mongo.Client, CollectionName string) *mongo.Collection{
-return client.Database("ClusterRS").Collection(CollectionName)
+return client.Database("jwt").Collection(CollectionName)
 }

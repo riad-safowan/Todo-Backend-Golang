@@ -6,8 +6,8 @@ import (
 	"github.com/riad-safowan/JWT-GO-MongoDB/middleware"
 )
 
-func User(r gin.Engine) {
+func User(r *gin.Engine) {
 	r.Use(middleware.Authenticate())
-	r.GET("/users", controllers.GetUser())
-	r.GET("/users/:user_id", controllers.GetUsers())
+	r.GET("/users", controllers.GetUsers())
+	r.GET("/user/:user_id", controllers.GetUser())
 }
