@@ -41,12 +41,14 @@ func Signup() gin.HandlerFunc {
 
 		if err := c.BindJSON(&user); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			defer cancel()
 			return
 		}
 
 		validationErr := validate.Struct(user)
 		if validationErr != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": validationErr.Error()})
+			defer cancel()
 			return
 		}
 
@@ -75,8 +77,8 @@ func Signup() gin.HandlerFunc {
 		user.Updated_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 		user.ID = primitive.NewObjectID()
 		user.User_id = user.ID.Hex()
-		acceccToken, refreshToken, _ := helpers.GenerateAllToken(*user.Email, *user.First_name, *user.Last_name, *user.User_type, user.User_id)
-		user.Access_token = &acceccToken
+		accessToken, refreshToken, _ := helpers.GenerateAllToken(*user.Email, *user.First_name, *user.Last_name, *user.User_type, user.User_id)
+		user.Access_token = &accessToken
 		user.Refresh_token = &refreshToken
 
 		resultInsertionNumber, insertErr := userCollection.InsertOne(ctx, user)
@@ -98,15 +100,15 @@ func Login() gin.HandlerFunc {
 
 		if err := c.BindJSON(&user); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			defer cancel()
 			return
 		}
-		// fmt.Println(*user.Email)
 		err := userCollection.FindOne(ctx, bson.M{"email": user.Email}).Decode(&foundUser)
-		defer cancel()
-		// fmt.Println(*foundUser.Password)
+
 		if err != nil {
 			log.Panic(err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Email or password is incorrect"})
+			defer cancel()
 			return
 		}
 
@@ -122,7 +124,7 @@ func Login() gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "user not found"})
 			return
 		}
-		
+
 		accessToken, refreshToken, _ := helpers.GenerateAllToken(*foundUser.Email, *foundUser.First_name, *foundUser.Last_name, *foundUser.User_type, foundUser.User_id)
 		helpers.UpdateAllTokens(accessToken, refreshToken, foundUser.User_id)
 
@@ -131,7 +133,39 @@ func Login() gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		
+
 		c.JSON(http.StatusOK, foundUser)
+	}
+}
+
+type TokenModel struct {
+	Access_token  string `json:"access_token"`
+	Refresh_token string `json:"refresh_token"`
+}
+
+func RefreshToken() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if c.GetString("token_type") == "refresh_token" {
+			var ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+			var user models.User
+			user_id := c.GetString("user_id")
+			id, _ := primitive.ObjectIDFromHex(user_id)
+			err := userCollection.FindOne(ctx, bson.M{"_id": id}).Decode(&user)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				defer cancel()
+				return
+			}
+
+			accessToken, refreshToken, _ := helpers.GenerateAllToken(*user.Email, *user.First_name, *user.Last_name, *user.User_type, user.User_id)
+			helpers.UpdateAllTokens(accessToken, refreshToken, user.User_id)
+
+			var tokenModel = TokenModel{Access_token: accessToken, Refresh_token: refreshToken}
+			c.JSON(http.StatusOK, tokenModel)
+			defer cancel()
+
+		} else {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "invald refresh token"})
+		}
 	}
 }

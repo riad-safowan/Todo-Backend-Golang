@@ -8,6 +8,7 @@ import (
 
 func User(r *gin.Engine) {
 	r.Use(middleware.Authenticate())
+	r.GET("/user/refresh_token", controllers.RefreshToken())
 	r.GET("/users", controllers.GetUsers())
 	r.GET("/user/:user_id", controllers.GetUser())
 }

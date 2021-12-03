@@ -32,13 +32,13 @@ func main() {
 	router := gin.New()
 	router.Use(gin.Logger())
 
-	routes.Auth(router)
-	routes.User(router)
-
 	router.GET("api-1", func(c *gin.Context) { c.JSON(200, gin.H{"success": "access granted for api-1"}) })
 	router.GET("api-2", func(c *gin.Context) { c.JSON(200, gin.H{"success": "access granted for api-2 "}) })
 
-	router.Run(":" + port)
+	routes.Auth(router)
+	routes.User(router)
+
+	router.Run("127.0.0.1:" + port)
 }
 
 func testMongo() {
@@ -50,7 +50,7 @@ func testMongo() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	
+
 	defer client.Disconnect(ctx)
 
 	err = client.Ping(ctx, readpref.Primary())
