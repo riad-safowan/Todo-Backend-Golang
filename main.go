@@ -24,7 +24,7 @@ func main() {
 	port := os.Getenv("PORT")
 
 	if port == "" {
-		port = "9999"
+		port = "9090"
 	}
 
 	// testMongo()
@@ -38,7 +38,7 @@ func main() {
 	routes.Auth(router)
 	routes.User(router)
 
-	router.Run("127.0.0.1:" + port)
+	router.Run("192.168.31.215:" + port)
 }
 
 func testMongo() {

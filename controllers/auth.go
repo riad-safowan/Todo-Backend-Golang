@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/riad-safowan/JWT-GO-MongoDB/helpers"
 	"github.com/riad-safowan/JWT-GO-MongoDB/models"
+	"github.com/riad-safowan/JWT-GO-MongoDB/models/response"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"golang.org/x/crypto/bcrypt"
@@ -134,7 +136,10 @@ func Login() gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusOK, foundUser)
+		var loginResponse = response.LoginResponse{}
+		b, _ := json.Marshal(&foundUser)
+		json.Unmarshal(b, &loginResponse)
+		c.JSON(http.StatusOK, loginResponse)
 	}
 }
 
