@@ -83,14 +83,15 @@ func Signup() gin.HandlerFunc {
 		user.Access_token = &accessToken
 		user.Refresh_token = &refreshToken
 
-		resultInsertionNumber, insertErr := userCollection.InsertOne(ctx, user)
+		_, insertErr := userCollection.InsertOne(ctx, user)
 		if insertErr != nil {
-			msg := fmt.Sprintf("User item was not created")
+			msg := fmt.Sprint("User item was not created")
 			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
 			return
 		}
 		defer cancel()
-		c.JSON(http.StatusOK, resultInsertionNumber)
+
+		c.JSON(http.StatusOK, getLoginResponse(user))
 	}
 }
 
@@ -135,11 +136,7 @@ func Login() gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-
-		var loginResponse = response.LoginResponse{}
-		b, _ := json.Marshal(&foundUser)
-		json.Unmarshal(b, &loginResponse)
-		c.JSON(http.StatusOK, loginResponse)
+		c.JSON(http.StatusOK, getLoginResponse(foundUser))
 	}
 }
 
@@ -173,4 +170,11 @@ func RefreshToken() gin.HandlerFunc {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "invald refresh token"})
 		}
 	}
+}
+
+func getLoginResponse(user models.User) response.LoginResponse {
+	var loginResponse = response.LoginResponse{}
+	b, _ := json.Marshal(&user)
+	json.Unmarshal(b, &loginResponse)
+	return loginResponse
 }
