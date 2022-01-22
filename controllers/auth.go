@@ -109,7 +109,6 @@ func Login() gin.HandlerFunc {
 		err := userCollection.FindOne(ctx, bson.M{"email": user.Email}).Decode(&foundUser)
 
 		if err != nil {
-			log.Panic(err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Email or password is incorrect"})
 			defer cancel()
 			return
@@ -119,7 +118,7 @@ func Login() gin.HandlerFunc {
 		defer cancel()
 
 		if !passIsValid {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
+			c.JSON(http.StatusBadRequest, gin.H{"error": msg})
 			return
 		}
 

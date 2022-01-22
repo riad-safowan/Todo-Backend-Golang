@@ -37,6 +37,7 @@ func main() {
 
 	routes.Auth(router)
 	routes.User(router)
+	routes.Task(router)
 
 	router.Run("192.168.31.215:" + port)
 }
