@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 
 	"time"
 
@@ -146,28 +147,50 @@ type TokenModel struct {
 
 func RefreshToken() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if c.GetString("token_type") == "refresh_token" {
-			var ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
-			var user models.User
-			user_id := c.GetString("user_id")
-			id, _ := primitive.ObjectIDFromHex(user_id)
-			err := userCollection.FindOne(ctx, bson.M{"_id": id}).Decode(&user)
-			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-				defer cancel()
-				return
-			}
+		var ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
 
-			accessToken, refreshToken, _ := helpers.GenerateAllToken(*user.Email, *user.First_name, *user.Last_name, *user.User_type, user.User_id)
-			helpers.UpdateAllTokens(accessToken, refreshToken, user.User_id)
-
-			var tokenModel = TokenModel{Access_token: accessToken, Refresh_token: refreshToken}
-			c.JSON(http.StatusOK, tokenModel)
-			defer cancel()
-
+		clientToken := c.Request.Header.Get("Authorization")
+		if clientToken == "" {
+			clientToken = c.Request.Header.Get("token")
+		} else if strings.HasPrefix(clientToken, "Bearer ") {
+			reqToken := c.Request.Header.Get("Authorization")
+			splitToken := strings.Split(reqToken, "Bearer ")
+			clientToken = splitToken[1]
 		} else {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "invald refresh token"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid authorization token"})
+			c.Abort()
+			return
 		}
+
+		if clientToken == "" {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "no Authorization header provided"})
+			c.Abort()
+			return
+		}
+		// handle access token
+		claims, err := helpers.ValidateToken(clientToken)
+
+		if err != "" || claims.Token_type!="refresh_token"{
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid authorization token"})
+			c.Abort()
+			return
+		}
+
+		var user models.User
+		id, _ := primitive.ObjectIDFromHex(claims.Uid)
+		e := userCollection.FindOne(ctx, bson.M{"_id": id}).Decode(&user)
+		if e != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": e.Error()})
+			defer cancel()
+			return
+		}
+
+		accessToken, refreshToken, _ := helpers.GenerateAllToken(*user.Email, *user.First_name, *user.Last_name, *user.User_type, user.User_id)
+		helpers.UpdateAllTokens(accessToken, refreshToken, user.User_id)
+
+		var tokenModel = TokenModel{Access_token: accessToken, Refresh_token: refreshToken}
+		c.JSON(http.StatusOK, tokenModel)
+		defer cancel()
 	}
 }
 

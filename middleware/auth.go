@@ -33,7 +33,7 @@ func Authenticate() gin.HandlerFunc {
 		claims, err := helpers.ValidateToken(clientToken)
 
 		if err != "" {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": err})
 			c.Abort()
 			return
 		}
@@ -46,9 +46,9 @@ func Authenticate() gin.HandlerFunc {
 			c.Set("user_type", claims.User_type)
 			c.Next()
 		} else if claims.Token_type == "refresh_token" {
-			c.Set("token_type", claims.Token_type)
-			c.Set("user_id", claims.Uid)
-			c.Next()
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid access_token"})
+			c.Abort()
+			return
 		}
 
 	}

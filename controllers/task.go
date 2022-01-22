@@ -10,6 +10,7 @@ import (
 	"github.com/riad-safowan/JWT-GO-MongoDB/database"
 	"github.com/riad-safowan/JWT-GO-MongoDB/models"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -18,9 +19,10 @@ var taskCollection *mongo.Collection = database.OpenCollection(database.Client, 
 
 func AddTask() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		println("called")
 		var ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
 		var task models.Task
+		task.ID = primitive.NewObjectID()
+		task.Task_id = task.ID.Hex()
 		var tasks models.Tasks
 		var user_id = c.GetString("user_id")
 
@@ -49,13 +51,13 @@ func AddTask() gin.HandlerFunc {
 		}
 
 		tasks.Tasks = append(tasks.Tasks, task)
-		_, insertErr := taskCollection.UpdateOne(ctx, bson.M{"user_id": user_id}, bson.D{{"$set",bson.D{{"tasks", tasks.Tasks}}},}, options.Update().SetUpsert(true))
+		_, insertErr := taskCollection.UpdateOne(ctx, bson.M{"user_id": user_id}, bson.D{{"$set", bson.D{{"tasks", tasks.Tasks}}}}, options.Update().SetUpsert(true))
 		if insertErr != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": insertErr.Error()})
 			defer cancel()
 			return
 		}
-		c.JSON(http.StatusOK, "Task Added")
+		c.JSON(http.StatusOK, tasks.Tasks)
 		defer cancel()
 	}
 }
