@@ -34,15 +34,15 @@ func GenerateAllToken(email string, firstName string, lastName string, userType 
 		Last_name:  lastName,
 		User_type:  userType,
 		Uid:        uid,
-		Token_type :"access_token",
+		Token_type: "access_token",
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: time.Now().Local().Add(time.Second * time.Duration(30)).Unix(),
 		},
 	}
 
 	refreshClaims := &SignedDetails{
-		Uid: uid,
-		Token_type :"refresh_token",
+		Uid:        uid,
+		Token_type: "refresh_token",
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: time.Now().Local().Add(time.Hour * time.Duration(24*7)).Unix(),
 		},
@@ -113,4 +113,3 @@ func ValidateToken(signedToken string) (claims *SignedDetails, msg string) {
 
 	return claims, msg
 }
-
