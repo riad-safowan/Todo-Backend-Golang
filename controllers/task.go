@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"net/http"
+
 	"strings"
 	"time"
 
@@ -20,10 +21,11 @@ var taskCollection *mongo.Collection = database.OpenCollection(database.Client, 
 func AddTask() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
 		var task models.Task
 		task.ID = primitive.NewObjectID()
 		task.Task_id = task.ID.Hex()
-		var tasks models.Tasks
+		var tasks []models.Task
 		var user_id = c.GetString("user_id")
 
 		if err := c.BindJSON(&task); err != nil {
@@ -39,32 +41,86 @@ func AddTask() gin.HandlerFunc {
 			return
 		}
 
-		err := taskCollection.FindOne(ctx, bson.M{"user_id": user_id}).Decode(&tasks)
-		if err != nil {
-			if strings.Contains(err.Error(), "no documents") {
-				tasks.UserId = user_id
-			} else {
-				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-				defer cancel()
-				return
-			}
+		projection := bson.D{
+			{"_id", 0},
+			{"tasks", 1},
 		}
 
-		tasks.Tasks = append(tasks.Tasks, task)
-		_, insertErr := taskCollection.UpdateOne(ctx, bson.M{"user_id": user_id}, bson.D{{"$set", bson.D{{"tasks", tasks.Tasks}}}}, options.Update().SetUpsert(true))
+		var response models.Tasks
+		err := taskCollection.FindOne(ctx, bson.M{"user_id": user_id}, options.FindOne().SetProjection(projection)).Decode(&response)
+		tasks = response.Tasks
+		if err != nil {
+			if strings.Contains(err.Error(), "no documents") {
+
+			} else {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				return
+			}
+		
+		}
+
+		_, insertErr := taskCollection.UpdateOne(ctx, bson.M{"user_id": user_id}, bson.D{{"$push", bson.D{{"tasks", task}}}}, options.Update().SetUpsert(true))
 		if insertErr != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": insertErr.Error()})
-			defer cancel()
 			return
 		}
-		c.JSON(http.StatusOK, tasks.Tasks)
-		defer cancel()
+		tasks = append(tasks, task)
+		c.JSON(http.StatusOK, tasks)
 	}
 }
 
 func AddTasks() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		var ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
 
+		var newTasks []models.Task
+		var user_id = c.GetString("user_id")
+
+		if err := c.BindJSON(&newTasks); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			defer cancel()
+			return
+		}
+
+		var validatedTask []models.Task
+		for _, task := range newTasks {
+			validationErr := validate.Struct(task)
+			if validationErr != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": validationErr.Error()})
+				defer cancel()
+				return
+			}
+			task.ID = primitive.NewObjectID()
+			task.Task_id = task.ID.Hex()
+			validatedTask = append(validatedTask, task)
+		}
+		projection := bson.D{
+			{"_id", 0},
+			{"tasks", 1},
+		}
+
+		var response models.Tasks
+		err := taskCollection.FindOne(ctx, bson.M{"user_id": user_id}, options.FindOne().SetProjection(projection)).Decode(&response)
+		oldTasks := response.Tasks
+		if err != nil {
+			if strings.Contains(err.Error(), "no documents") {
+
+			} else {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			}
+			return
+		}
+
+		oldTasks = append(oldTasks, validatedTask...)
+
+		_, insertErr := taskCollection.UpdateOne(ctx, bson.M{"user_id": user_id}, bson.D{{"$push", bson.D{{"tasks", bson.D{{"$each", validatedTask}}}}}}, options.Update().SetUpsert(true))
+		if insertErr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": insertErr.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, oldTasks)
 	}
 }
 

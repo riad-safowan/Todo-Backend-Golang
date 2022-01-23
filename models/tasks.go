@@ -13,5 +13,5 @@ type Task struct {
 
 type Tasks struct {
 	UserId string `bson:"user_id"`
-	Tasks  []Task `bson:"tasks"`
+	Tasks  []Task `bson:"tasks" validate:"required"`
 }
