@@ -111,7 +111,6 @@ func AddTasks() gin.HandlerFunc {
 				return
 			}
 		}
-
 		oldTasks = append(oldTasks, validatedTask...)
 
 		_, insertErr := taskCollection.UpdateOne(ctx, bson.M{"user_id": user_id}, bson.D{{"$push", bson.D{{"tasks", bson.D{{"$each", validatedTask}}}}}}, options.Update().SetUpsert(true))
@@ -129,21 +128,21 @@ func GetTask() gin.HandlerFunc {
 		defer cancel()
 		taskId := c.Param("task_id")
 		id, _ := primitive.ObjectIDFromHex(taskId)
+		userId := c.GetString("user_id")
 		println(taskId)
 
 		projection := bson.D{
 			{"_id", 0},
 			{"user_id", 0},
+			// {"tasks.time", bson.D{{"$slice",1}}},
 			{"tasks", bson.D{
 				{"$elemMatch", bson.D{{"_id", id}}},
 			}},
 		}
-
 		var response models.Tasks
-		err := taskCollection.FindOne(ctx, bson.M{"tasks._id": id},
+		err := taskCollection.FindOne(ctx, bson.M{"user_id": userId},
 			options.FindOne().SetProjection(projection),
 		).Decode(&response)
-
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
@@ -159,6 +158,29 @@ func GetTasks() gin.HandlerFunc {
 		defer cancel()
 		var user_id = c.GetString("user_id")
 
+		// sort := c.Query("sortedBy")
+		// page, err := strconv.Atoi(c.Query("page"))
+		// if err != nil {
+		// 	page = 1
+		// }
+
+		// count, err := strconv.Atoi(c.Query("count"))
+		// if err != nil {
+		// 	count = 10
+		// }
+		// var total = 10
+		// println(total, " ", sort, " ", page, " ", count)
+
+		// // total, err := taskCollection.CountDocuments(ctx, bson.M{"user_id": user_id})
+		// // query:=bson.D{{"$match", bson.D{{"user_id", user_id}, {"tasks.task_id", "61ef166131705bd1435f469c"}}},} 
+		// group:=bson.D{{"$group", bson.D{{"_id", "$tasks.task_name"}}},} 
+		// // countt:=bson.D{{"$count", "allDocuments"}}
+		// var data []bson.M
+		// cursor, _ := taskCollection.Aggregate(ctx, mongo.Pipeline{group})
+		// cursor.All(ctx, &data)
+		// c.JSON(http.StatusOK, data)
+		// return
+
 		projection := bson.D{
 			{"_id", 0},
 			{"tasks", 1},
@@ -168,10 +190,9 @@ func GetTasks() gin.HandlerFunc {
 		err := taskCollection.FindOne(ctx, bson.M{"user_id": user_id}, options.FindOne().SetProjection(projection)).Decode(&response)
 		tasks := response.Tasks
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 		c.JSON(http.StatusOK, tasks)
 	}
-
 }

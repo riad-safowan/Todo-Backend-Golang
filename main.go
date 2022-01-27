@@ -5,15 +5,17 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 	"github.com/joho/godotenv"
+	"github.com/riad-safowan/JWT-GO-MongoDB/routes"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
-	"github.com/riad-safowan/JWT-GO-MongoDB/routes"
 )
 
 func main() {
@@ -33,13 +35,46 @@ func main() {
 	router.Use(gin.Logger())
 
 	router.GET("api-1", func(c *gin.Context) { c.JSON(200, gin.H{"success": "access granted for api-1"}) })
-	router.GET("api-2", func(c *gin.Context) { c.JSON(200, gin.H{"success": "access granted for api-2 "}) })
+	router.GET("/ws", websocketConnection())
 
 	routes.Auth(router)
 	routes.User(router)
 	routes.Task(router)
 
 	router.Run("192.168.31.215:" + port)
+}
+
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+}
+
+func websocketConnection() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ws, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+		if err != nil {
+			_, _ = fmt.Fprint(c.Writer, "You must use the web socket protocol to connect to this endpoint.", err)
+			return
+		}
+
+		defer ws.Close()
+
+		for {
+			_, p, err := ws.ReadMessage()
+			if err != nil {
+				println(err)
+				break
+			}
+			msg := string(p)
+			println("massage: ", msg)
+			for i := 0; i < 5; i++ {
+				ws.WriteMessage(websocket.TextMessage, []byte(strconv.Itoa(i)))
+				time.Sleep(5 * time.Second)
+			}
+			println("Riad")
+		}
+
+	}
 }
 
 func testMongo() {
